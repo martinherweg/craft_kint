@@ -41,18 +41,6 @@ This is the simplest usage, and will output an interactive debugger for the vari
 
 This works the same way as the d (dump) command, except it will cause output to end immediately after the debugger is returned.
 
-#### s (simple dump)
-
-`{{ s(someTwigVariable) }}` or `{{ craft.kint.s(someTwigVariable) }}`
-
-This works essentially the same way as the built-in Twig dump method, and returns a plain text debugging output.
-
-#### sd (simple dump and die)
-
-`{{ sd(someTwigVariable) }}` or `{{ craft.kint.sd(someTwigVariable) }}`
-
-Same as above, but with output ending immediately after the plain text debugging output is returned.
-
 #### time (point-in-time memory usage and timestamp)
 
 `{{ time() }}` or `{{ craft.kint.time }}`
@@ -84,6 +72,11 @@ one central object to keep things clean.
 ### 1.1.0 -- 2016.02.16
 
 * Added Twig functions `d`, `dd`, `s`, `sd`, and `time` for easier usage
+
+### 1.1.1 -- 2017.05.20
+
+* Updated Kint to latest Version
+* Removed `s`, `sd` function because they are no longer supported by Kint
 
 ## Credit
 
