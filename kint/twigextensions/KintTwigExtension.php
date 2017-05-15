@@ -15,8 +15,6 @@ class KintTwigExtension extends \Twig_Extension
         return array(
             'd'    => new \Twig_Function_Method($this, 'd'),
             'dd'   => new \Twig_Function_Method($this, 'dd'),
-            's'    => new \Twig_Function_Method($this, 's'),
-            'sd'   => new \Twig_Function_Method($this, 'sd'),
             'time' => new \Twig_Function_Method($this, 'time')
             );
     }
@@ -34,16 +32,6 @@ class KintTwigExtension extends \Twig_Extension
     public function dd($debug)
     {
         return craft()->kint->dd($debug);
-    }
-
-    public function s($debug)
-    {
-        return craft()->kint->s($debug);
-    }
-
-    public function sd($debug)
-    {
-        return craft()->kint->sd($debug);
     }
 
     public function time()

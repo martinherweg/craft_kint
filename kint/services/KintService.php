@@ -25,16 +25,6 @@ class KintService extends BaseApplicationComponent
         return ddd($debug);
     }
 
-    public function s($debug = null)
-    {
-        return s($debug);
-    }
-
-    public function sd($debug = null)
-    {
-        return sd($debug);
-    }
-
     public function time()
     {
         return d(microtime());

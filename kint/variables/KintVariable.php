@@ -32,16 +32,6 @@ class KintVariable
         return craft()->kint->dd($debug);
     }
 
-    public function s($debug = null)
-    {
-        return craft()->kint->s($debug);
-    }
-
-    public function sd($debug = null)
-    {
-        return craft()->kint->sd($debug);
-    }
-
     public function time()
     {
         return craft()->kint->time();
