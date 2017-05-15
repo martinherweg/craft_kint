@@ -21,6 +21,17 @@ class KintPlugin extends BasePlugin
         $settings = craft()->plugins->getPlugin('kint')->getSettings();
         \Kint_Renderer_Rich::$theme = $settings->kintDisplayTheme;
         \Kint::$max_depth = $settings->kintMaxDepth;
+
+
+        /**
+         * ddd() was removed from kint core so we have to create it on our own and alias it in kint
+         * @param array ...$v
+         */
+        function ddd(...$v){
+            d(...$v);
+            exit;
+        }
+        \Kint::$aliases[] = 'ddd';
     }
 
     public function getName()
