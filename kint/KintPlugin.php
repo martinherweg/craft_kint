@@ -20,6 +20,7 @@ class KintPlugin extends BasePlugin
         require_once __DIR__ . '/vendor/autoload.php';
         $settings = craft()->plugins->getPlugin('kint')->getSettings();
         \Kint::$theme = $settings->kintDisplayTheme;
+        \Kint::$max_depth = $settings->kintMaxDepth;
     }
 
     public function getName()
@@ -68,6 +69,11 @@ class KintPlugin extends BasePlugin
             'kintDisplayTheme' => array(
                 AttributeType::Mixed,
                 'default' => 'original'
+                'default' => 'original.css'
+            ),
+            'kintMaxDepth' => array(
+                AttributeType::String,
+                'default' => '7'
             )
         );
     }

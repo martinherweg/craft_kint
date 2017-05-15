@@ -14,3 +14,11 @@
     value: settings.kintDisplayTheme,
     first: true
 }) }}
+
+{{ forms.textField({
+  label: "Max parsing depth. A number between 0 (unlimited) and 7 (Default)",
+  id: 'kintMaxDepth',
+  name: 'kintMaxDepth',
+  default: '7',
+  value: settings.kintMaxDepth
+}) }}
