@@ -4,35 +4,38 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "9021dcd0cead75b3238c91ebf39e6c3f",
-    "content-hash": "f67d9ade7a6eced052c4f1df5169cc47",
+    "hash": "eb744ccc8b5148d22c7bc051339b1580",
+    "content-hash": "14b0388e17be4be8aec4cb56f75bf0fc",
     "packages": [
         {
-            "name": "raveren/kint",
-            "version": "1.0.10",
+            "name": "kint-php/kint",
+            "version": "2.1",
             "source": {
                 "type": "git",
-                "url": "https://github.com/raveren/kint.git",
-                "reference": "c8423b9928bd35bf6ad14c688ab9c6d17d97d0eb"
+                "url": "https://github.com/kint-php/kint.git",
+                "reference": "17ec4f2393560ea857f7e72ada106f489cb1e277"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/raveren/kint/zipball/c8423b9928bd35bf6ad14c688ab9c6d17d97d0eb",
-                "reference": "c8423b9928bd35bf6ad14c688ab9c6d17d97d0eb",
+                "url": "https://api.github.com/repos/kint-php/kint/zipball/17ec4f2393560ea857f7e72ada106f489cb1e277",
+                "reference": "17ec4f2393560ea857f7e72ada106f489cb1e277",
                 "shasum": ""
             },
             "require": {
-                "php": ">=5.1.0"
+                "php": ">=5.1.2"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^2.0",
+                "phpunit/phpunit": "^4.0",
+                "symfony/finder": "^2.6"
             },
             "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "1.0.x-dev"
-                }
-            },
             "autoload": {
                 "files": [
-                    "Kint.class.php"
+                    "init.php"
+                ],
+                "classmap": [
+                    "src/"
                 ]
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -45,18 +48,22 @@
                     "homepage": "https://github.com/raveren"
                 },
                 {
+                    "name": "Jonathan Vollebregt",
+                    "homepage": "https://github.com/jnvsor"
+                },
+                {
                     "name": "Contributors",
-                    "homepage": "https://github.com/raveren/kint/contributors"
+                    "homepage": "https://github.com/kint-php/kint/graphs/contributors"
                 }
             ],
-            "description": "Kint - debugging helper for PHP developers",
-            "homepage": "https://github.com/raveren/kint",
+            "description": "Kint - debugging tool for PHP developers",
+            "homepage": "https://kint-php.github.io/kint/",
             "keywords": [
                 "debug",
                 "kint",
                 "php"
             ],
-            "time": "2015-09-16 14:09:00"
+            "time": "2017-05-13 17:24:30"
         }
     ],
     "packages-dev": [],
