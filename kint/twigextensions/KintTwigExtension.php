@@ -39,4 +39,8 @@ class KintTwigExtension extends \Twig_Extension
         return craft()->kint->time();
     }
 
+    public function preRender()
+    {
+        echo \R::$preRenderOutput . '</div>';
+    }
 }
