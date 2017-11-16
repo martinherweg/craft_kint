@@ -11,6 +11,16 @@ class Kint_Renderer_Text extends Kint_Renderer
     );
 
     /**
+     * Parser plugins must be instanceof one of these or
+     * it will be removed for performance reasons.
+     */
+    public static $parser_plugin_whitelist = array(
+        'Kint_Parser_Blacklist',
+        'Kint_Parser_Stream',
+        'Kint_Parser_Trace',
+    );
+
+    /**
      * The maximum length of a string before it is truncated.
      *
      * Falsey to disable
@@ -87,7 +97,7 @@ class Kint_Renderer_Text extends Kint_Renderer
     public function boxText($text, $width)
     {
         if (Kint_Object_Blob::strlen($text) > $width - 4) {
-            $text = mb_substr($text, 0, $width - 7).'...';
+            $text = Kint_Object_Blob::substr($text, 0, $width - 7).'...';
         }
 
         $text .= str_repeat(' ', $width - 4 - Kint_Object_Blob::strlen($text));
@@ -108,7 +118,7 @@ class Kint_Renderer_Text extends Kint_Renderer
         if (self::$decorations) {
             return $this->boxText($name, $this->header_width);
         } elseif (Kint_Object_Blob::strlen($name) > $this->header_width) {
-            return mb_substr($name, 0, $this->header_width - 3).'...';
+            return Kint_Object_Blob::substr($name, 0, $this->header_width - 3).'...';
         } else {
             return $name;
         }
@@ -218,6 +228,22 @@ class Kint_Renderer_Text extends Kint_Renderer
 
             return $this->colorTitle($output.$this->calledFrom().PHP_EOL);
         }
+    }
+
+    public function parserPlugins(array $plugins)
+    {
+        $return = array();
+
+        foreach ($plugins as $index => $plugin) {
+            foreach (self::$parser_plugin_whitelist as $whitelist) {
+                if ($plugin instanceof $whitelist) {
+                    $return[] = $plugin;
+                    continue 2;
+                }
+            }
+        }
+
+        return $return;
     }
 
     protected function calledFrom()

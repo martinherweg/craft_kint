@@ -1,6 +1,8 @@
 <?php
 namespace Craft;
 
+require_once __DIR__ . '/../KintPreRender.php';
+
 class KintTwigExtension extends \Twig_Extension
 {
     protected $env;
@@ -15,7 +17,8 @@ class KintTwigExtension extends \Twig_Extension
         return array(
             'd'    => new \Twig_Function_Method($this, 'd'),
             'dd'   => new \Twig_Function_Method($this, 'dd'),
-            'time' => new \Twig_Function_Method($this, 'time')
+            'time' => new \Twig_Function_Method($this, 'time'),
+            'preRender' => new \Twig_Function_Method($this, 'preRender'),
             );
     }
 

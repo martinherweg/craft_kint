@@ -71,7 +71,7 @@ class Kint
     /**
      * @var int max array/object levels to go deep, if zero no limits are applied
      */
-    public static $max_depth = 7;
+    public static $max_depth = 6;
 
     /**
      * @var bool expand all trees by default for rich view
@@ -91,6 +91,7 @@ class Kint
     public static $aliases = array(
         array('Kint', 'dump'),
         array('Kint', 'trace'),
+        array('Kint', 'dumpArray'),
     );
 
     /**
@@ -110,20 +111,16 @@ class Kint
 
     public static $plugins = array(
         'Kint_Parser_Base64',
-        'Kint_Parser_Binary',
         'Kint_Parser_Blacklist',
         'Kint_Parser_ClassMethods',
         'Kint_Parser_ClassStatics',
         'Kint_Parser_Closure',
         'Kint_Parser_Color',
         'Kint_Parser_DateTime',
-        'Kint_Parser_DOMIterator',
-        'Kint_Parser_DOMNode',
         'Kint_Parser_FsPath',
         'Kint_Parser_Iterator',
         'Kint_Parser_Json',
         'Kint_Parser_Microtime',
-        'Kint_Parser_Serialize',
         'Kint_Parser_SimpleXMLElement',
         'Kint_Parser_SplFileInfo',
         'Kint_Parser_SplObjectStorage',
@@ -137,6 +134,8 @@ class Kint
     );
 
     private static $plugin_pool = array();
+    private static $dump_array = false;
+    private static $names = array();
 
     /**
      * Stashes or sets all settings at once.
@@ -194,9 +193,45 @@ class Kint
             } else {
                 $trace = debug_backtrace();
             }
+        } else {
+            return self::dump($trace);
         }
 
-        return self::dump($trace);
+        Kint_Parser_Trace::normalizeAliases(self::$aliases);
+
+        $trimmed_trace = array();
+
+        foreach ($trace as $frame) {
+            if (Kint_Parser_Trace::frameIsListed($frame, self::$aliases)) {
+                $trimmed_trace = array();
+            }
+
+            $trimmed_trace[] = $frame;
+        }
+
+        return self::dumpArray(
+            array($trimmed_trace),
+            array(Kint_Object::blank('Kint::trace()', 'debug_backtrace()'))
+        );
+    }
+
+    /**
+     * Dumps an array as separate values, and uses $names to seed the parser.
+     *
+     * @param array                   $data  Data to be dumped
+     * @param array[Kint_Object]|null $names Array of Kint_Object to seed the parser with
+     */
+    public static function dumpArray(array $data, array $names = null)
+    {
+        self::$names = $names;
+        self::$dump_array = true;
+
+        $out = self::dump($data);
+
+        self::$names = null;
+        self::$dump_array = false;
+
+        return $out;
     }
 
     /**
@@ -222,7 +257,7 @@ class Kint
      *
      * @param mixed $data
      *
-     * @return void|string
+     * @return int|string
      */
     public static function dump($data = null)
     {
@@ -285,24 +320,32 @@ class Kint
             'stash' => $stash,
         ));
 
-        $output = call_user_func(array($renderer, 'preRender'));
-
-        $parser = new Kint_Parser(self::$max_depth, empty($caller['class']) ? null : $caller['class']);
+        $plugins = array();
 
         foreach (self::$plugins as $plugin) {
             if ($plugin instanceof Kint_Parser_Plugin) {
-                $parser->addPlugin($plugin);
+                $plugins[] = $plugin;
             } elseif (is_string($plugin) && is_subclass_of($plugin, 'Kint_Parser_Plugin')) {
                 if (!isset(self::$plugin_pool[$plugin])) {
                     $p = new $plugin();
                     self::$plugin_pool[$plugin] = $p;
                 }
-                $parser->addPlugin(self::$plugin_pool[$plugin]);
+                $plugins[] = self::$plugin_pool[$plugin];
             }
         }
 
+        $plugins = $renderer->parserPlugins($plugins);
+
+        $output = $renderer->preRender();
+
+        $parser = new Kint_Parser(self::$max_depth, empty($caller['class']) ? null : $caller['class']);
+
+        foreach ($plugins as $plugin) {
+            $parser->addPlugin($plugin);
+        }
+
         // Kint::dump(1) shorthand
-        if ((!isset($params[0]['name']) || $params[0]['name'] == '1') && $num_args === 1 && $data === 1) {
+        if (!self::$dump_array && (!isset($params[0]['name']) || $params[0]['name'] == '1') && $num_args === 1 && $data === 1) {
             if (KINT_PHP525) {
                 $data = debug_backtrace(true);
             } else {
@@ -328,19 +371,30 @@ class Kint
             $tracebase = Kint_Object::blank($tracename, 'debug_backtrace()');
 
             if (empty($trace)) {
-                $output .= call_user_func(array($renderer, 'render'), $tracebase->transplant(new Kint_Object_Trace()));
+                $output .= $renderer->render($tracebase->transplant(new Kint_Object_Trace()));
             } else {
-                $output .= call_user_func(array($renderer, 'render'), $parser->parse($trace, $tracebase));
+                $output .= $renderer->render($parser->parse($trace, $tracebase));
             }
         } else {
             $data = func_get_args();
             if ($data === array()) {
-                $output .= call_user_func(array($renderer, 'render'), new Kint_Object_Nothing());
+                $output .= $renderer->render(new Kint_Object_Nothing());
+            }
+
+            if (self::$dump_array) {
+                $data = $data[0];
             }
 
             static $blacklist = array('null', 'true', 'false', 'array(...)', 'array()', '"..."', 'b"..."', '[...]', '[]', '(...)', '()');
 
             foreach ($data as $i => $argument) {
+                if (isset(self::$names[$i])) {
+                    $output .= $renderer->render(
+                        $parser->parse($argument, self::$names[$i])
+                    );
+                    continue;
+                }
+
                 if (!isset($params[$i]['name']) || is_numeric($params[$i]['name']) || in_array(str_replace("'", '"', strtolower($params[$i]['name'])), $blacklist, true)) {
                     $name = null;
                 } else {
@@ -357,14 +411,13 @@ class Kint
                     $access_path = '$'.$i;
                 }
 
-                $output .= call_user_func(
-                    array($renderer, 'render'),
+                $output .= $renderer->render(
                     $parser->parse($argument, Kint_Object::blank($name, $access_path))
                 );
             }
         }
 
-        $output .= call_user_func(array($renderer, 'postRender'));
+        $output .= $renderer->postRender();
 
         if (self::$return) {
             self::settings($stash);

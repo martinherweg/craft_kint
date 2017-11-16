@@ -14,4 +14,4 @@ class R extends Kint_Renderer_Rich
     }
 }
 
-Kint::$renderers[Kint::MODE_RICH] = 'R';
+    Kint::$renderers[Kint::MODE_RICH] = 'R';

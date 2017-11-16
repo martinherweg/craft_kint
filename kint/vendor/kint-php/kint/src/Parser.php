@@ -120,14 +120,23 @@ class Kint_Parser
                 return $array;
             }
 
+            // Don't even bother with reference checking below 5.2.2. It's an
+            // absolute nightmare. The foreach loop depends on the array pointer
+            // which "conveniently" moves about semi-randomly when you alter
+            // the value you're looping over by means of a reference.
+            if (KINT_PHP522) {
+                $copy = array_values($var);
+            }
+
             // It's really really hard to access numeric string keys in arrays,
             // and it's really really hard to access integer properties in
             // objects, so we just use array_values and index by counter to get
             // at it reliably for reference testing. This also affects access
             // paths since it's pretty much impossible to access these things
             // without complicated stuff you should never need to do.
-            $copy = array_values($var);
             $i = 0;
+
+            // Set the marker for recursion
             $var[$this->marker] = $array->depth;
 
             foreach ($var as $key => &$val) {
@@ -149,11 +158,13 @@ class Kint_Parser
                     }
                 }
 
-                $stash = $val;
-                $copy[$i] = $this->marker;
-                if ($val === $this->marker) {
-                    $child->reference = true;
-                    $val = $stash;
+                if (KINT_PHP522) {
+                    $stash = $val;
+                    $copy[$i] = $this->marker;
+                    if ($val === $this->marker) {
+                        $child->reference = true;
+                        $val = $stash;
+                    }
                 }
 
                 $rep->contents[] = $this->parse($val, $child);
@@ -187,6 +198,7 @@ class Kint_Parser
         $object = $o->transplant(new Kint_Object_Instance());
         $object->classname = get_class($var);
         $object->hash = $hash;
+        $object->size = count($values);
 
         if (isset($this->object_hashes[$hash])) {
             $object->hints[] = 'recursion';
@@ -207,8 +219,6 @@ class Kint_Parser
             return $object;
         }
 
-        $object->size = 0;
-
         // ArrayObject (and maybe ArrayIterator, did not try yet) unsurprisingly
         // consist of mainly dark magic. What bothers me most, var_dump sees no
         // problem with it, and ArrayObject also uses a custom, undocumented
@@ -228,27 +238,28 @@ class Kint_Parser
 
         $rep = new Kint_Object_Representation('Properties');
 
-        $copy = array_values($values);
-        $i = 0;
-        $skip_reflector = false;
+        if (KINT_PHP522) {
+            $copy = array_values($values);
+        }
 
-        // Casting the object to an array can provide more information
-        // than reflection. Notably, parent classes' private properties
-        // don't show with reflection's getProperties()
+        $i = 0;
+
+        // Reflection will not show parent classes private properties, and if a
+        // property was unset it will happly trigger a notice looking for it.
         foreach ($values as $key => &$val) {
-            // casting object to array:
-            // integer properties are inaccessible;
-            // private variables have the class name prepended to the variable name;
-            // protected variables have a '*' prepended to the variable name.
-            // These prepended values have null bytes on either side.
+            // Casting object to array:
+            // private properties show in the form "\0$owner_class_name\0$property_name";
+            // protected properties show in the form "\0*\0$property_name";
+            // public properties show in the form "$property_name";
             // http://www.php.net/manual/en/language.types.array.php#language.types.array.casting
 
             $child = new Kint_Object();
             $child->depth = $object->depth + 1;
             $child->owner_class = $object->classname;
             $child->operator = Kint_Object::OPERATOR_OBJECT;
+            $child->access = Kint_Object::ACCESS_PUBLIC;
 
-            $split_key = explode("\0", $key);
+            $split_key = explode("\0", $key, 3);
 
             if (count($split_key) === 3 && $split_key[0] === '') {
                 $child->name = $split_key[2];
@@ -258,100 +269,35 @@ class Kint_Parser
                     $child->access = Kint_Object::ACCESS_PRIVATE;
                     $child->owner_class = $split_key[1];
                 }
+            } elseif (KINT_PHP72) {
+                $child->name = (string) $key;
             } else {
                 $child->name = $key;
-                $child->access = Kint_Object::ACCESS_PUBLIC;
             }
 
             if ($this->childHasPath($object, $child)) {
                 $child->access_path = $object->access_path;
 
-                if (is_int($child->name)) {
+                if (!KINT_PHP72 && is_int($child->name)) {
                     $child->access_path = 'array_values((array) '.$child->access_path.')['.$i.']';
                 } elseif (preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/', $child->name)) {
                     $child->access_path .= '->'.$child->name;
                 } else {
-                    $child->access_path .= '->{'.var_export($child->name, true).'}';
+                    $child->access_path .= '->{'.var_export((string) $child->name, true).'}';
                 }
             }
 
-            $stash = $val;
-            $copy[$i] = $this->marker;
-            if ($val === $this->marker) {
-                $child->reference = true;
-                $val = $stash;
+            if (KINT_PHP522) {
+                $stash = $val;
+                $copy[$i] = $this->marker;
+                if ($val === $this->marker) {
+                    $child->reference = true;
+                    $val = $stash;
+                }
             }
 
             $rep->contents[] = $this->parse($val, $child);
-            ++$object->size;
             ++$i;
-
-            // HHVM throws an error when reflecting integer properties
-            if (defined('HHVM_VERSION') && is_int($key)) {
-                $skip_reflector = true;
-            }
-        }
-
-        $properties = $skip_reflector ? array() : $reflector->getProperties();
-
-        foreach ($properties as $property) {
-            if ($property->isStatic()) {
-                continue;
-            }
-
-            if ($property->isProtected()) {
-                if (array_key_exists("\0*\0".$property->name, $values)) {
-                    continue;
-                }
-            } elseif ($property->isPrivate()) {
-                if (array_key_exists("\0".$property->getDeclaringClass()->name."\0".$property->name, $values)) {
-                    continue;
-                }
-            } elseif (in_array($property->name, array_keys($values), !KINT_PHP72)) {
-                // That's a very iffy elseif. Looks like $property->name isn't a
-                // string like it says in the docs and is actually mixed, let's
-                // hope that's true of all supported PHP versions.
-                //
-                // Additionally, PHP 7.2 casts string/int keys when casting
-                // between object and array, so we need non-strict checking
-                // above 7.1 or it will accidentally do it twice.
-                continue;
-            }
-
-            $child = new Kint_Object();
-            $child->depth = $object->depth + 1;
-            $child->owner_class = $object->classname;
-            $child->name = $property->name;
-            $child->operator = Kint_Object::OPERATOR_OBJECT;
-
-            if ($property->isProtected()) {
-                $property->setAccessible(true);
-                $child->owner_class = $property->getDeclaringClass()->name;
-                $child->access = Kint_Object::ACCESS_PROTECTED;
-            } elseif ($property->isPrivate()) {
-                $child->owner_class = $property->getDeclaringClass()->name;
-                $property->setAccessible(true);
-                $child->access = Kint_Object::ACCESS_PRIVATE;
-            } else {
-                $child->access = Kint_Object::ACCESS_PUBLIC;
-            }
-
-            if ($this->childHasPath($object, $child) && is_string($child->name)) {
-                $child->access_path = $object->access_path;
-
-                if (is_int($child->name)) {
-                    $child->access_path = 'array_values((array) '.$child->access_path.')['.$i.']';
-                } elseif (preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/', $child->name)) {
-                    $child->access_path .= '->'.$child->name;
-                } else {
-                    $child->access_path .= '->{'.var_export($child->name, true).'}';
-                }
-            }
-
-            $val = $property->getValue($var);
-            $rep->contents[] = $this->parse($val, $child);
-            unset($val);
-            ++$object->size;
         }
 
         if (isset($ArrayObject_flags_stash)) {
@@ -380,11 +326,6 @@ class Kint_Parser
     private function parseUnknown(&$var, Kint_Object $o)
     {
         $o->type = 'unknown';
-
-        $rep = new Kint_Object_Representation('Unknown');
-        $rep->contents = var_export($var, true);
-        $o->addRepresentation($rep);
-
         $this->applyPlugins($var, $o, self::TRIGGER_SUCCESS);
 
         return $o;
